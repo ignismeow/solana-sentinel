@@ -10,8 +10,6 @@ const WATCHED_ADDRESS = '9sFm5xoNgh258BakHC1dxNYBU34Aiq3XfBX3Y4y8SBHG';
 const RISK_CONFIG = { thresholdSol: 0.1 };
 const { publicKey: QUARANTINE_ADDRESS } = loadQuarantineInfo();
 
-app.use(bodyParser.json({ type: '*/*' }));
-
 app.get('/', (req, res) => {
   res.status(200).send('Sentinel listener up');
 });
@@ -78,8 +76,23 @@ async function handleTransfers(payload) {
   }
 }
 
-app.post('/helius', (req, res) => {
-  const payload = req.body;
+app.post('/helius', bodyParser.raw({ type: '*/*', limit: '2mb' }), (req, res) => {
+  let payload = {};
+  try {
+    if (Buffer.isBuffer(req.body)) {
+      const text = req.body.toString('utf8').trim();
+      payload = text ? JSON.parse(text) : {};
+    } else if (typeof req.body === 'string') {
+      payload = req.body ? JSON.parse(req.body) : {};
+    } else if (typeof req.body === 'object' && req.body !== null) {
+      payload = req.body;
+    }
+  } catch (err) {
+    console.error('Failed to parse webhook payload', err.message);
+    res.status(400).send('Invalid payload');
+    return;
+  }
+
   res.status(200).send('OK');
 
   (async () => {
