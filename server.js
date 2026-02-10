@@ -37,54 +37,58 @@ async function notifyTelegram(message, extra = '') {
   }
 }
 
-app.post('/helius', async (req, res) => {
-  try {
-    const payload = req.body;
-    persistWebhookRaw(payload);
-    const transfers = extractTransfers(payload, WATCHED_ADDRESS);
+async function handleTransfers(payload) {
+  persistWebhookRaw(payload);
+  const transfers = extractTransfers(payload, WATCHED_ADDRESS);
 
-    if (!transfers.length) {
-      return res.status(200).json({ ok: true, processed: 0 });
-    }
+  if (!transfers.length) {
+    return;
+  }
 
-    const assessments = assessTransfers(transfers, RISK_CONFIG);
-    const results = [];
+  const assessments = assessTransfers(transfers, RISK_CONFIG);
 
-    for (const assessment of assessments) {
-      if (assessment.isHighRisk) {
-        try {
-          const { txSignature, auditProof } = await lockFunds(assessment, {
-            quarantineAddress: QUARANTINE_ADDRESS,
-          });
-          results.push({ signature: assessment.transfer.signature, status: 'QUARANTINED', txSignature });
-          await notifyTelegram(
-            `High-risk transfer quarantined. Trigger tx: ${txSignature}`,
-            `Audit Proof: ${auditProof.signature}`
-          );
-        } catch (err) {
-          console.error('Failed to lock funds', err);
-          results.push({ signature: assessment.transfer.signature, status: 'FAILED', error: err.message });
-          await notifyTelegram(
-            `High-risk transfer LOCK FAILED for ${assessment.transfer.signature}`,
-            err.message
-          );
-        }
-      } else {
-        try {
-          const auditProof = await verifyTransfer(assessment, 'VERIFIED');
-          results.push({ signature: assessment.transfer.signature, status: 'VERIFIED', audit: auditProof.signature });
-        } catch (err) {
-          console.error('Audit proof generation failed', err.message);
-          results.push({ signature: assessment.transfer.signature, status: 'AUDIT_FAILED', error: err.message });
-        }
+  for (const assessment of assessments) {
+    if (assessment.isHighRisk) {
+      try {
+        const { txSignature, auditProof } = await lockFunds(assessment, {
+          quarantineAddress: QUARANTINE_ADDRESS,
+        });
+        await notifyTelegram(
+          `High-risk transfer quarantined. Trigger tx: ${txSignature}`,
+          `Audit Proof: ${auditProof.signature}`
+        );
+      } catch (err) {
+        console.error('Failed to lock funds', err);
+        await notifyTelegram(
+          `High-risk transfer LOCK FAILED for ${assessment.transfer.signature}`,
+          err.message
+        );
+      }
+    } else {
+      try {
+        const auditProof = await verifyTransfer(assessment, 'VERIFIED');
+        console.log('Transfer verified', {
+          signature: assessment.transfer.signature,
+          auditProof: auditProof.signature,
+        });
+      } catch (err) {
+        console.error('Audit proof generation failed', err.message);
       }
     }
-
-    res.status(200).json({ ok: true, processed: assessments.length, results });
-  } catch (error) {
-    console.error('Sentinel handler error', error);
-    res.status(500).json({ ok: false, error: error.message });
   }
+}
+
+app.post('/helius', (req, res) => {
+  const payload = req.body;
+  res.status(200).send('OK');
+
+  (async () => {
+    try {
+      await handleTransfers(payload);
+    } catch (error) {
+      console.error('Sentinel handler error', error);
+    }
+  })();
 });
 
 app.listen(PORT, () => {

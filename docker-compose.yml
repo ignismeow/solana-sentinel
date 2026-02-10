@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  sentinel-compliance:
+    build: .
+    container_name: sentinel-compliance
+    restart: always
+    environment:
+      TELEGRAM_BOT_TOKEN: "8364788981:AAGxzOf8m65Rd9PVJrASoaZw-0STOBwgcwY"
+      TELEGRAM_CHAT_ID: "5784319128"
+    ports:
+      - "3000:3000"
