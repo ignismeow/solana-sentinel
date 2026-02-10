@@ -12,3 +12,5 @@ compliance/quarantine-keypair.json
 .agentwallet/
 compliance/logs/
 compliance/audit/
+
+frontend/.env

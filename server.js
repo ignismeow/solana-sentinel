@@ -1,5 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
+import cors from 'cors';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { persistWebhookRaw, extractTransfers } from './sentinel/watcher.js';
 import { assessTransfers } from './sentinel/riskEngine.js';
@@ -19,6 +20,19 @@ const RPC_ENDPOINTS = {
 };
 const RPC_URL = process.env.RPC_URL || RPC_ENDPOINTS[CLUSTER] || RPC_ENDPOINTS.devnet;
 const connection = new Connection(RPC_URL, 'confirmed');
+
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://sentinelsol.live',
+  'https://www.sentinelsol.live',
+  'https://api.sentinelsol.live',
+  'http://sentinel-compliance:3000',
+  'http://localhost:5173',
+];
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+const CORS_ORIGINS = allowedOrigins.length ? allowedOrigins : DEFAULT_ALLOWED_ORIGINS;
 
 const dashboardState = {
   events: [],
@@ -124,6 +138,19 @@ async function refreshBalances() {
 refreshBalances();
 const BALANCE_REFRESH_MS = parseInt(process.env.BALANCE_REFRESH_MS || '30000', 10);
 setInterval(refreshBalances, BALANCE_REFRESH_MS);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || CORS_ORIGINS.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
+    credentials: true,
+  })
+);
 
 app.get('/', (req, res) => {
   res.status(200).send('Sentinel listener up');

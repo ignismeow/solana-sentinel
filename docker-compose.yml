@@ -14,7 +14,7 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_BASE_URL: "http://sentinel-compliance:3000"
+        VITE_API_BASE_URL: "https://api.sentinelsol.live"
     container_name: sentinel-dashboard
     restart: always
     depends_on:
