@@ -8,3 +8,5 @@ solana-install/
 *.tar.*
 *.bz2
 *.xz
+compliance/quarantine-keypair.json
+.agentwallet/

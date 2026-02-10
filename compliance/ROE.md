@@ -8,3 +8,4 @@
 - **Verification source of truth:** Maintain a whitelist of verified counterparties in `compliance/verified_senders.json`. Any address absent from that list is treated as unverified until explicitly added.
 - **Reporting:** Aggregate daily compliance summaries into `compliance/logs/YYYY-MM-DD.md` and surface high-priority flags immediately to ignismeow via this workspace.
 - **Automation target:** Implement `scripts/sentinel.ts` (or similar) that runs an "Active Compliance Loop" leveraging Helius webhooks or Solana websocket subscriptions to trigger checks and proofs autonomously.
+- **Quarantine wallet:** Suspicious funds are swept into the dedicated holding account `9rNwJLSz71dAoisg48JbvSzgrnCHheHZAjcPQbfjMkMj` (key stored at `compliance/quarantine-keypair.json`).
