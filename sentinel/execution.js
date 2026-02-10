@@ -40,6 +40,11 @@ function getConnection(cluster) {
   return connectionCache.get(key);
 }
 
+export function getExecutionConnection(clusterOverride) {
+  const cluster = (clusterOverride || getCluster()).toLowerCase();
+  return getConnection(cluster);
+}
+
 function loadKeypair(keypairPath) {
   const absolutePath = path.isAbsolute(keypairPath)
     ? keypairPath
