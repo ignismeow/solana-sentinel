@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 const EVENT_POLL_MS = 5000;
 const BALANCE_POLL_MS = 7000;
+const API_BASE = import.meta.env.VITE_RESOLVED_API_URL || '';
 
-function useApi(endpoint, intervalMs, fallback) {
+function useApi(path, intervalMs, fallback) {
   const [data, setData] = useState(fallback);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -12,9 +13,14 @@ function useApi(endpoint, intervalMs, fallback) {
     let timer;
     let abort = false;
 
+    const endpoint = `${API_BASE.replace(/\/$/, '')}${path}`;
+
     const fetchData = async () => {
       try {
-        const res = await fetch(endpoint);
+        const res = await fetch(endpoint, {
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         if (!abort) {
@@ -39,7 +45,7 @@ function useApi(endpoint, intervalMs, fallback) {
       abort = true;
       if (timer) clearTimeout(timer);
     };
-  }, [endpoint, intervalMs]);
+  }, [path, intervalMs]);
 
   return { data, loading, error };
 }
