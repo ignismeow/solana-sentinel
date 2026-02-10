@@ -89,7 +89,10 @@ PATH=/workspace/node/bin:$PATH npm install   # already done once
 npm run dev
 ```
 
-By default Vite proxies `/api/*` to `http://localhost:3000`, so run the backend locally (or set `VITE_API_BASE`) before launching the UI. For production, run `npm run build` and serve `frontend/dist` behind the same domain as the backend.
+By default Vite proxies `/api/*` to `http://localhost:3000`, so run the backend locally (or set `VITE_API_BASE`) before launching the UI. For production you now have two choices:
+
+1. **Serve from Docker:** `docker compose up -d --build` now spins up both `sentinel-compliance` (API) and `sentinel-dashboard` (Vite preview on port 4173) with the frontend prebuilt against the internal API address.
+2. **Serve static dist manually:** `npm run build` and host `frontend/dist` behind the same domain as the backend (set `VITE_API_BASE_URL` at build time if needed).
 
 ## Deployment options
 
