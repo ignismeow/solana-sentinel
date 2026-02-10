@@ -11,6 +11,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "body-parser": "^2.2.2",
+    "express": "^5.2.1",
     "solana-agent-kit": "^2.0.10"
   }
 }

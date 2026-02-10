@@ -1,0 +1,8 @@
+{
+  "webhookID": "b06bbe91-27ed-4482-9c22-98b39bec508c",
+  "project": "645a068e-b763-43ef-9b57-c1b3faed9c6d",
+  "webhookURL": "https://sentinel.wickhub.cc/helius",
+  "accountAddresses": ["9sFm5xoNgh258BakHC1dxNYBU34Aiq3XfBX3Y4y8SBHG"],
+  "transactionTypes": ["ANY"],
+  "createdAt": "2026-02-10T09:48:00Z"
+}
