@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { executeSmartTransfer } from './execution.js';
 
 const CONFIG_PATH = path.join(process.cwd(), '.agentwallet', 'config.json');
 const QUARANTINE_PATH = path.join(process.cwd(), 'compliance', 'quarantine.json');
@@ -8,6 +9,10 @@ const API_BASE = 'https://agentwallet.mcpay.tech/api';
 const FEE_BUFFER_LAMPORTS = 5000; // ~0.000005 SOL
 const CALL_DELAY_MS = 2000;
 const RETRY_DELAY_MS = 5000;
+
+const SMART_EXECUTION_ENABLED = process.env.USE_JITO_BUNDLES === 'true';
+const SMART_EXECUTION_SIGNER = process.env.JITO_SIGNER_KEYPAIR_PATH;
+const CLUSTER = (process.env.CLUSTER || 'devnet').toLowerCase();
 
 function ensureAuditDir() {
   fs.mkdirSync(AUDIT_DIR, { recursive: true });
@@ -90,6 +95,56 @@ function appendAuditRecord(record) {
   fs.appendFileSync(logPath, entry, 'utf8');
 }
 
+async function performAgentWalletTransfer(config, quarantineAddress, amountLamports) {
+  const transferBody = {
+    to: quarantineAddress,
+    amount: amountLamports.toString(),
+    asset: 'sol',
+    network: 'devnet',
+  };
+
+  const res = await fetch(`${API_BASE}/wallets/${config.username}/actions/transfer-solana`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.apiToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(transferBody),
+  });
+
+  const data = await res.json();
+  if (!res.ok || data?.error) {
+    throw new Error(`AgentWallet transfer failed: ${JSON.stringify(data)}`);
+  }
+
+  return {
+    txSignature: data?.txHash || data?.transactionHash || data?.signature || 'unknown',
+    executionDetails: { method: 'agentwallet' },
+  };
+}
+
+async function performSmartExecution(quarantineAddress, amountLamports) {
+  if (!SMART_EXECUTION_ENABLED || !SMART_EXECUTION_SIGNER) {
+    return null;
+  }
+
+  try {
+    const result = await executeSmartTransfer({
+      signerKeypairPath: SMART_EXECUTION_SIGNER,
+      toPubkey: quarantineAddress,
+      amountLamports,
+      cluster: CLUSTER,
+    });
+    return {
+      txSignature: result.signature,
+      executionDetails: result,
+    };
+  } catch (err) {
+    console.error('[escrow] Smart execution failed, falling back to AgentWallet', err.message);
+    return null;
+  }
+}
+
 export async function lockFunds(assessment, options = {}) {
   return enqueue(async () => {
     const config = loadAgentWalletConfig();
@@ -101,42 +156,25 @@ export async function lockFunds(assessment, options = {}) {
       throw new Error('Computed transfer amount is <= 0 after fee buffer.');
     }
 
-    const transferBody = {
-      to: quarantineAddress,
-      amount: amountLamports.toString(),
-      asset: 'sol',
-      network: 'devnet',
-    };
-
-    const res = await fetch(`${API_BASE}/wallets/${config.username}/actions/transfer-solana`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.apiToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(transferBody),
-    });
-
-    const data = await res.json();
-    if (!res.ok || data?.error) {
-      throw new Error(`AgentWallet transfer failed: ${JSON.stringify(data)}`);
+    let executionResult = await performSmartExecution(quarantineAddress, amountLamports);
+    if (!executionResult) {
+      executionResult = await performAgentWalletTransfer(config, quarantineAddress, amountLamports);
     }
-
-    const txSignature = data?.txHash || data?.transactionHash || data?.signature || 'unknown';
 
     const auditPayload = {
       action: 'LOCK_FUNDS',
       timestamp: new Date().toISOString(),
       quarantineAddress,
-      txSignature,
+      txSignature: executionResult.txSignature,
       reason: assessment.reasons,
       transfer: assessment.transfer,
+      executionDetails: executionResult.executionDetails,
     };
 
     const auditProof = await signAuditMessage(config, auditPayload);
     appendAuditRecord({ ...auditPayload, auditProof });
 
-    return { txSignature, auditProof };
+    return { txSignature: executionResult.txSignature, auditProof, executionDetails: executionResult.executionDetails };
   });
 }
 
