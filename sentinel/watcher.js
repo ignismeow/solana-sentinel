@@ -16,8 +16,21 @@ export function persistWebhookRaw(payload) {
   fs.appendFileSync(logPath, entry, 'utf8');
 }
 
+function normalizeTransactions(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (payload?.transactions) {
+    return payload.transactions;
+  }
+  if (payload?.data?.transactions) {
+    return payload.data.transactions;
+  }
+  return [];
+}
+
 export function extractTransfers(payload, watchedAddress) {
-  const transactions = payload?.transactions ?? [];
+  const transactions = normalizeTransactions(payload);
   const transfers = [];
 
   for (const tx of transactions) {
