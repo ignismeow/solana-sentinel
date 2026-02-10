@@ -1,0 +1,10 @@
+node_modules/
+node/
+solana-install/
+.cache/
+.config/
+.npm/
+*.tar
+*.tar.*
+*.bz2
+*.xz
